@@ -142,19 +142,27 @@ export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
 
         {/* Footer */}
         {script && !loading && (
-          <div className="flex items-center justify-end gap-3 p-5 border-t border-[rgba(255,255,255,0.07)]">
+          <div className="flex items-center justify-between gap-3 p-5 border-t border-[rgba(255,255,255,0.07)]">
             <button
-              onClick={onClose}
-              className="px-4 py-1.5 rounded-full text-sm border border-[rgba(255,255,255,0.1)] text-[#8a8278] hover:text-[#f0ece4] hover:border-[rgba(255,255,255,0.2)] transition-all"
+              onClick={runFetch}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm border border-[rgba(255,255,255,0.1)] text-[#8a8278] hover:text-[#d4a574] hover:border-[rgba(212,165,116,0.3)] transition-all"
             >
-              Close
+              ↻ Regenerate
             </button>
-            <button
-              onClick={handleCopy}
-              className="px-5 py-1.5 rounded-full text-sm bg-[rgba(212,165,116,0.15)] border border-[rgba(212,165,116,0.4)] text-[#d4a574] hover:bg-[rgba(212,165,116,0.25)] transition-all font-medium"
-            >
-              {copied ? '✓ Copied!' : 'Copy to clipboard'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onClose}
+                className="px-4 py-1.5 rounded-full text-sm border border-[rgba(255,255,255,0.1)] text-[#8a8278] hover:text-[#f0ece4] hover:border-[rgba(255,255,255,0.2)] transition-all"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleCopy}
+                className="px-5 py-1.5 rounded-full text-sm bg-[rgba(212,165,116,0.15)] border border-[rgba(212,165,116,0.4)] text-[#d4a574] hover:bg-[rgba(212,165,116,0.25)] transition-all font-medium"
+              >
+                {copied ? '✓ Copied!' : 'Copy to clipboard'}
+              </button>
+            </div>
           </div>
         )}
       </div>
