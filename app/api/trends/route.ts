@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { Trend, Category, HeatLevel, Platform } from '@/types'
 
+export const maxDuration = 120 // seconds — web search + generation can take 30-60s
+
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
