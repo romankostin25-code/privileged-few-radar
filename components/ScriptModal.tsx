@@ -1,11 +1,34 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Trend } from '@/types'
 
 interface ScriptModalProps {
   trend: Trend | null
   onClose: () => void
+}
+
+async function fetchScript(trend: Trend): Promise<string> {
+  const res = await fetch('/api/script', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trend }),
+  })
+
+  // Always read as text first — avoids JSON.parse crash on non-JSON error pages
+  const text = await res.text()
+  let data: { script?: string; error?: string }
+
+  try {
+    data = JSON.parse(text)
+  } catch {
+    // Vercel timeout / HTML error page — surface a readable message
+    throw new Error(res.ok ? 'Unexpected server response' : `Server error ${res.status}`)
+  }
+
+  if (!res.ok || data.error) throw new Error(data.error ?? 'Script generation failed')
+  if (!data.script) throw new Error('No script returned')
+  return data.script
 }
 
 export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
@@ -14,32 +37,22 @@ export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
+  const runFetch = useCallback(() => {
     if (!trend) return
-
     setScript(null)
     setError(null)
     setLoading(true)
-
-    fetch('/api/script', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trend }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error)
-        setScript(data.script)
-      })
-      .catch((err: Error) => setError(err.message))
+    fetchScript(trend)
+      .then((s) => setScript(s))
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [trend])
 
+  useEffect(() => { runFetch() }, [runFetch])
+
   // Close on Escape
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -53,7 +66,6 @@ export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Format script sections with visual breaks
   const formattedLines = script
     ? script.split('\n').map((line, i) => {
         const isSection = /^[🎬💬📣⏱️]/.test(line)
@@ -63,7 +75,9 @@ export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
             key={i}
             className={[
               isEmpty ? 'h-3' : '',
-              isSection ? 'text-[#d4a574] font-semibold text-sm mt-4 mb-1' : 'text-[#d4ece4e6] leading-relaxed text-sm',
+              isSection
+                ? 'text-[#d4a574] font-semibold text-sm mt-4 mb-1'
+                : 'text-[#e0dbd4] leading-relaxed text-sm',
             ].join(' ')}
           >
             {!isEmpty && line}
@@ -77,13 +91,10 @@ export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
-      {/* Panel */}
       <div className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-[#141414] border border-[rgba(212,165,116,0.2)] shadow-[0_0_60px_rgba(0,0,0,0.8)]">
-
-        {/* Modal header */}
+        {/* Header */}
         <div className="flex items-start justify-between gap-4 p-6 border-b border-[rgba(255,255,255,0.07)]">
           <div>
             <p className="text-[10px] font-semibold tracking-[0.12em] uppercase text-[#d4a574] mb-1">
@@ -98,7 +109,7 @@ export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-[rgba(255,255,255,0.1)] text-[#6b6560] hover:text-[#f0ece4] hover:border-[rgba(255,255,255,0.25)] transition-all duration-200 text-lg"
+            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-[rgba(255,255,255,0.1)] text-[#6b6560] hover:text-[#f0ece4] hover:border-[rgba(255,255,255,0.25)] transition-all text-lg"
           >
             ×
           </button>
@@ -118,22 +129,7 @@ export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
               <span className="text-3xl">⚠️</span>
               <p className="text-sm text-[#8a8278]">{error}</p>
               <button
-                onClick={() => {
-                  setError(null)
-                  setLoading(true)
-                  fetch('/api/script', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trend }),
-                  })
-                    .then((r) => r.json())
-                    .then((d) => {
-                      if (d.error) throw new Error(d.error)
-                      setScript(d.script)
-                    })
-                    .catch((e: Error) => setError(e.message))
-                    .finally(() => setLoading(false))
-                }}
+                onClick={runFetch}
                 className="px-4 py-1.5 rounded-full text-sm border border-[rgba(212,165,116,0.3)] text-[#d4a574] hover:bg-[rgba(212,165,116,0.12)] transition-all"
               >
                 Try again
@@ -141,11 +137,7 @@ export default function ScriptModal({ trend, onClose }: ScriptModalProps) {
             </div>
           )}
 
-          {script && !loading && (
-            <div className="font-mono-free">
-              {formattedLines}
-            </div>
-          )}
+          {script && !loading && <div>{formattedLines}</div>}
         </div>
 
         {/* Footer */}
