@@ -31,6 +31,7 @@ export default function HomePage() {
   const [historyDates, setHistoryDates] = useState<string[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [seeding, setSeeding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
@@ -75,6 +76,22 @@ export default function HomePage() {
       })
       .catch(() => setLoading(false))
   }, [loadDay])
+
+  // One-time manual seed (used only when KV has no data yet)
+  async function seedToday() {
+    setSeeding(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/seed', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error ?? 'Seed failed')
+      setHistoryDates([data.date])
+      loadDay(data.date)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Seed failed')
+      setSeeding(false)
+    }
+  }
 
   // Navigate between saved days
   const dateIndex = selectedDate ? historyDates.indexOf(selectedDate) : -1
@@ -186,18 +203,39 @@ export default function HomePage() {
           )}
 
           {/* No data yet state */}
-          {!loading && historyDates.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
+          {!loading && !seeding && historyDates.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-32 gap-5 text-center">
               <span className="text-5xl opacity-30">📡</span>
               <p
                 className="text-2xl text-[#4a4440]"
                 style={{ fontFamily: '"DM Serif Display", Georgia, serif' }}
               >
-                Your first brief is on its way.
+                No briefs yet.
               </p>
               <p className="text-sm text-[#3a3a3a] max-w-sm">
-                Trends are generated automatically every morning at 7 AM UTC and saved here.
+                From tomorrow onwards, trends arrive automatically at 7 AM UTC.
+                Generate today's first brief manually to get started.
               </p>
+              <button
+                onClick={seedToday}
+                className="mt-2 flex items-center gap-2 px-6 py-2.5 rounded-full border border-[#d4a574] text-[#d4a574] text-sm font-medium hover:bg-[rgba(212,165,116,0.12)] transition-all"
+              >
+                Generate today's brief
+              </button>
+            </div>
+          )}
+
+          {/* Seeding loader */}
+          {seeding && (
+            <div className="flex flex-col items-center justify-center py-32 gap-5">
+              <div className="w-10 h-10 rounded-full border-2 border-[rgba(212,165,116,0.2)] border-t-[#d4a574] animate-spin" />
+              <p
+                className="text-xl text-[#d4a574]"
+                style={{ fontFamily: '"DM Serif Display", Georgia, serif' }}
+              >
+                Scanning for today's cultural moments...
+              </p>
+              <p className="text-sm text-[#6b6560]">This takes 20–40 seconds</p>
             </div>
           )}
 
