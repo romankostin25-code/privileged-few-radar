@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold: #d4a574;
+  --gold-light: #e8c49a;
+  --gold-muted: rgba(212, 165, 116, 0.15);
+  --bg: #0a0a0a;
+  --surface: #1a1a1a;
+  --surface-hover: #222222;
+  --text-primary: #f0ece4;
+  --text-muted: #8a8278;
+  --border: rgba(255, 255, 255, 0.07);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: var(--bg);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .font-serif {
+    font-family: 'DM Serif Display', Georgia, serif;
+  }
+
+  .text-gold {
+    color: var(--gold);
+  }
+
+  .border-gold {
+    border-color: var(--gold);
+  }
+
+  .bg-surface {
+    background-color: var(--surface);
+  }
+
+  .text-muted {
+    color: var(--text-muted);
+  }
+}
+
+/* Staggered card animation */
+.trend-card:nth-child(1)  { animation-delay: 0.05s; }
+.trend-card:nth-child(2)  { animation-delay: 0.10s; }
+.trend-card:nth-child(3)  { animation-delay: 0.15s; }
+.trend-card:nth-child(4)  { animation-delay: 0.20s; }
+.trend-card:nth-child(5)  { animation-delay: 0.25s; }
+.trend-card:nth-child(6)  { animation-delay: 0.30s; }
+.trend-card:nth-child(7)  { animation-delay: 0.35s; }
+.trend-card:nth-child(8)  { animation-delay: 0.40s; }
+.trend-card:nth-child(9)  { animation-delay: 0.45s; }
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
+}
