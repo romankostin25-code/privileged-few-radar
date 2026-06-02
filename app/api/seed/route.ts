@@ -12,7 +12,8 @@ export async function POST() {
     const date = todayDate()
     const { trends, generatedAt } = await fetchTrends()
     await saveSnapshot({ date, trends, generatedAt })
-    return NextResponse.json({ ok: true, date, count: trends.length })
+    // Return trends directly — UI must not depend on Redis being available
+    return NextResponse.json({ ok: true, date, trends, generatedAt })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 500 })

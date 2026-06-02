@@ -85,7 +85,7 @@ export default function HomePage() {
     try {
       const res = await fetch('/api/seed', { method: 'POST', signal: controller.signal })
       const text = await res.text()
-      let data: { ok?: boolean; date?: string; error?: string }
+      let data: { ok?: boolean; date?: string; trends?: import('@/types').Trend[]; generatedAt?: string; error?: string }
       try {
         data = JSON.parse(text)
       } catch {
@@ -97,12 +97,16 @@ export default function HomePage() {
       }
       if (!res.ok || data.error) throw new Error(data.error ?? 'Generation failed')
       clearTimeout(timeout)
-      const dates = await refreshDates()
-      const date = data.date ?? todayISO()
-      if (!historyDates.includes(date) && dates.length > 0) {
-        // already updated via refreshDates
+
+      // Use trends directly from response — don't wait on Redis
+      if (data.trends?.length) {
+        setTrends(data.trends)
+        setSelectedDate(data.date ?? todayISO())
+        setActiveFilter('all')
       }
-      await loadDay(date)
+
+      // Refresh history index in background so calendar updates
+      refreshDates()
     } catch (err) {
       clearTimeout(timeout)
       setSeedError(
