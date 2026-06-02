@@ -81,8 +81,10 @@ export default function HomePage() {
   async function seedToday() {
     setSeeding(true)
     setError(null)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 90_000)
     try {
-      const res = await fetch('/api/seed', { method: 'POST' })
+      const res = await fetch('/api/seed', { method: 'POST', signal: controller.signal })
       const text = await res.text()
       let data: { ok?: boolean; date?: string; error?: string }
       try {
@@ -95,11 +97,16 @@ export default function HomePage() {
         throw new Error('Server error — check that ANTHROPIC_API_KEY is set in Vercel environment variables.')
       }
       if (!res.ok || data.error) throw new Error(data.error ?? 'Seed failed')
+      clearTimeout(timeout)
       setSeeding(false)
       setHistoryDates([data.date ?? ''])
       if (data.date) loadDay(data.date)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Seed failed')
+      clearTimeout(timeout)
+      const msg = err instanceof Error
+        ? (err.name === 'AbortError' ? 'Request timed out after 90s. Check Vercel function logs for the error.' : err.message)
+        : 'Seed failed'
+      setError(msg)
       setSeeding(false)
     }
   }
