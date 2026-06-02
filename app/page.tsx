@@ -83,10 +83,20 @@ export default function HomePage() {
     setError(null)
     try {
       const res = await fetch('/api/seed', { method: 'POST' })
-      const data = await res.json()
+      const text = await res.text()
+      let data: { ok?: boolean; date?: string; error?: string }
+      try {
+        data = JSON.parse(text)
+      } catch {
+        // Vercel returns plain text on timeout/infra errors
+        if (text.toLowerCase().includes('timeout') || text.toLowerCase().includes('duration')) {
+          throw new Error('Function timed out. This app requires Vercel Pro (300s limit) — Hobby plan allows only 10s. Upgrade at vercel.com/upgrade.')
+        }
+        throw new Error('Server error — check that ANTHROPIC_API_KEY is set in Vercel environment variables.')
+      }
       if (!res.ok || data.error) throw new Error(data.error ?? 'Seed failed')
-      setHistoryDates([data.date])
-      loadDay(data.date)
+      setHistoryDates([data.date ?? ''])
+      if (data.date) loadDay(data.date)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Seed failed')
       setSeeding(false)
