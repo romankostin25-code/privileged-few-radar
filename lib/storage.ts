@@ -6,45 +6,39 @@ export interface DaySnapshot {
   generatedAt: string
 }
 
-function isConfigured(): boolean {
-  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
-}
+const PREFIX = 'pf/trends/'
 
-const DATE_KEY = (date: string) => `pf:trends:${date}`
-const INDEX_KEY = 'pf:dates'
+function isConfigured(): boolean {
+  return !!process.env.BLOB_READ_WRITE_TOKEN
+}
 
 export function todayDate(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-async function getRedis() {
-  const { Redis } = await import('@upstash/redis')
-  return new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-  })
-}
-
 export async function saveSnapshot(snapshot: DaySnapshot): Promise<void> {
   if (!isConfigured()) {
-    console.warn('[storage] Upstash env vars not set — snapshot not saved')
+    console.warn('[storage] BLOB_READ_WRITE_TOKEN not set — snapshot not saved')
     return
   }
-  const redis = await getRedis()
-  await Promise.all([
-    redis.set(DATE_KEY(snapshot.date), JSON.stringify(snapshot)),
-    redis.sadd(INDEX_KEY, snapshot.date),
-  ])
-  console.log('[storage] saved snapshot for', snapshot.date)
+  const { put } = await import('@vercel/blob')
+  await put(`${PREFIX}${snapshot.date}.json`, JSON.stringify(snapshot), {
+    access: 'public',
+    addRandomSuffix: false,
+    contentType: 'application/json',
+  })
+  console.log('[storage] saved blob for', snapshot.date)
 }
 
 export async function getSnapshot(date: string): Promise<DaySnapshot | null> {
   if (!isConfigured()) return null
   try {
-    const redis = await getRedis()
-    const raw = await redis.get(DATE_KEY(date))
-    if (!raw) return null
-    return typeof raw === 'string' ? JSON.parse(raw) : raw as DaySnapshot
+    const { list } = await import('@vercel/blob')
+    const { blobs } = await list({ prefix: `${PREFIX}${date}.json`, limit: 1 })
+    if (!blobs.length) return null
+    const res = await fetch(blobs[0].url)
+    if (!res.ok) return null
+    return res.json()
   } catch (err) {
     console.error('[storage] getSnapshot failed:', err)
     return null
@@ -54,9 +48,12 @@ export async function getSnapshot(date: string): Promise<DaySnapshot | null> {
 export async function listDates(): Promise<string[]> {
   if (!isConfigured()) return []
   try {
-    const redis = await getRedis()
-    const members = await redis.smembers(INDEX_KEY)
-    return (members as string[]).sort((a, b) => b.localeCompare(a))
+    const { list } = await import('@vercel/blob')
+    const { blobs } = await list({ prefix: PREFIX })
+    return blobs
+      .map(b => b.pathname.replace(PREFIX, '').replace('.json', ''))
+      .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      .sort((a, b) => b.localeCompare(a))
   } catch (err) {
     console.error('[storage] listDates failed:', err)
     return []
