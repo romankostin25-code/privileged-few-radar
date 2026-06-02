@@ -52,16 +52,56 @@ function sanitizeTrend(raw: Record<string, unknown>, fetchedAt: string): Trend {
   }
 }
 
+// Finds the first well-formed JSON array in text using balanced-bracket parsing.
+// Handles nested objects, strings with brackets, footnotes like [1], etc.
+function extractJsonArray(text: string): unknown[] {
+  // Strip markdown code fences first
+  const clean = text.replace(/```(?:json)?/gi, '').trim()
+
+  const start = clean.indexOf('[')
+  if (start === -1) {
+    throw new Error(`No JSON array found in response. Preview: "${clean.slice(0, 300)}"`)
+  }
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let i = start; i < clean.length; i++) {
+    const ch = clean[i]
+    if (escaped) { escaped = false; continue }
+    if (ch === '\\' && inString) { escaped = true; continue }
+    if (ch === '"') { inString = !inString; continue }
+    if (inString) continue
+    if (ch === '[' || ch === '{') depth++
+    else if (ch === ']' || ch === '}') {
+      depth--
+      if (depth === 0) {
+        const candidate = clean.slice(start, i + 1)
+        try {
+          return JSON.parse(candidate)
+        } catch (e) {
+          throw new Error(`JSON parse failed: ${e}. Extracted: "${candidate.slice(0, 200)}"`)
+        }
+      }
+    }
+  }
+
+  throw new Error(`Unmatched brackets in response. Preview: "${clean.slice(0, 300)}"`)
+}
+
 export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: string }> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error('ANTHROPIC_API_KEY is not set. Add it in Vercel → Project Settings → Environment Variables.')
+    throw new Error('ANTHROPIC_API_KEY is not set in Vercel environment variables.')
   }
+
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
     max_tokens: 8000,
     system: SYSTEM_PROMPT,
-    tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 5 }],
+    tools: [{ type: 'web_search_20250305' as const, name: 'web_search' }],
     messages: [{ role: 'user', content: USER_PROMPT }],
   })
 
@@ -70,23 +110,9 @@ export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: str
     .map((b) => (b as { type: 'text'; text: string }).text)
     .join('')
 
-  // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
-  const stripped = textContent.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '').trim()
+  console.log('[fetch-trends] stop_reason:', response.stop_reason, 'text length:', textContent.length)
 
-  // Find the outermost JSON array — try the stripped version first, then raw
-  const jsonMatch = stripped.match(/\[[\s\S]*\]/) ?? textContent.match(/\[[\s\S]*\]/)
-  if (!jsonMatch) {
-    const preview = textContent.slice(0, 300).replace(/\n/g, ' ')
-    throw new Error(`Model returned no JSON array. Response preview: "${preview}"`)
-  }
-
-  let rawTrends: unknown[]
-  try {
-    rawTrends = JSON.parse(jsonMatch[0])
-  } catch (e) {
-    const preview = jsonMatch[0].slice(0, 200)
-    throw new Error(`JSON parse failed: ${e}. Content: "${preview}"`)
-  }
+  const rawTrends = extractJsonArray(textContent)
   const fetchedAt = new Date().toISOString()
 
   return {
