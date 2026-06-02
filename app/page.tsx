@@ -254,7 +254,7 @@ export default function HomePage() {
           )}
 
           {/* No data yet */}
-          {!loading && !seeding && historyDates.length === 0 && (
+          {!loading && !seeding && historyDates.length === 0 && !hasData && (
             <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
               <span className="text-5xl opacity-20">📡</span>
               <p className="text-2xl text-[#4a4440]" style={{ fontFamily: '"DM Serif Display", Georgia, serif' }}>
