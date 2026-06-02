@@ -1,8 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { Trend, Category, HeatLevel, Platform } from '@/types'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 const SYSTEM_PROMPT = `You are a content intelligence assistant for Privileged Few — a cross-platform media company run by Albina Aliyeva (@aliyevaal / @weareprivilegedfew). The brand is focused on wealth transparency, rich people lifestyles, privilege, relationships, and social mobility. The core audience is ambitious, globally-minded women aged 18–34 interested in: luxury, nepo babies, wealth secrets, old vs new money, celebrity relationships, prenups, how to get rich, class dynamics, and billionaire culture.
 
 Your job is to scan the web and find the 9 most relevant trending stories from the last 24–72 hours that Albina can reference in her Instagram Reels to make them feel timely and culturally relevant.
@@ -55,6 +53,10 @@ function sanitizeTrend(raw: Record<string, unknown>, fetchedAt: string): Trend {
 }
 
 export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: string }> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY is not set. Add it in Vercel → Project Settings → Environment Variables.')
+  }
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
     max_tokens: 8000,
