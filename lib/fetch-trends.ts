@@ -63,7 +63,7 @@ export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: str
   console.log('[fetch-trends] stage 1: researching...')
   const researchRes = await client.messages.create({
     model: 'claude-sonnet-4-5',
-    max_tokens: 4000,
+    max_tokens: 3000,
     system: RESEARCH_SYSTEM,
     tools: [{ type: 'web_search_20250305' as const, name: 'web_search' }],
     messages: [{ role: 'user', content: RESEARCH_PROMPT }],
@@ -83,7 +83,7 @@ export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: str
   // ── Stage 2: format research into JSON (prefilled response = guaranteed JSON) ──
   console.log('[fetch-trends] stage 2: formatting as JSON...')
   const formatRes = await client.messages.create({
-    model: 'claude-sonnet-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 6000,
     system: FORMAT_SYSTEM,
     messages: [

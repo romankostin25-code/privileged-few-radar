@@ -81,7 +81,7 @@ export default function HomePage() {
     setSeedError(null)
     setSeeding(true)
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 90_000)
+    const timeout = setTimeout(() => controller.abort(), 150_000)
     try {
       const res = await fetch('/api/seed', { method: 'POST', signal: controller.signal })
       const text = await res.text()
@@ -107,7 +107,7 @@ export default function HomePage() {
       clearTimeout(timeout)
       setSeedError(
         err instanceof Error
-          ? (err.name === 'AbortError' ? 'Timed out after 90s — check Vercel logs.' : err.message)
+          ? (err.name === 'AbortError' ? 'Timed out after 150s — check Vercel logs.' : err.message)
           : 'Generation failed'
       )
     } finally {

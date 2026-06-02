@@ -3,7 +3,7 @@ import { fetchTrends } from '@/lib/fetch-trends'
 import { saveSnapshot, todayDate } from '@/lib/storage'
 import { sendMorningBrief } from '@/lib/email'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 export async function GET(req: NextRequest) {
   // Verify the request is from Vercel's cron scheduler

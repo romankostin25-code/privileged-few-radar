@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { fetchTrends } from '@/lib/fetch-trends'
 import { saveSnapshot, todayDate } from '@/lib/storage'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 // One-shot endpoint to seed today's trends manually.
 // No auth — acceptable since triggering costs only one API call.
