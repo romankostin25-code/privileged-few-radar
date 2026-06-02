@@ -95,6 +95,7 @@ export default function HomePage() {
         throw new Error('Server error — check that ANTHROPIC_API_KEY is set in Vercel environment variables.')
       }
       if (!res.ok || data.error) throw new Error(data.error ?? 'Seed failed')
+      setSeeding(false)
       setHistoryDates([data.date ?? ''])
       if (data.date) loadDay(data.date)
     } catch (err) {
