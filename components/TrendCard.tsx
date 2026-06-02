@@ -32,6 +32,7 @@ const PLATFORM_ICON: Record<string, string> = {
   twitter: '𝕏',
   youtube: '▶',
   news: '📰',
+  instagram_reels: '🎬',
 }
 
 const CATEGORY_LABEL: Record<string, string> = {

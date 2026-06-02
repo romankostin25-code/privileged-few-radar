@@ -2,13 +2,26 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { Trend, Category, HeatLevel, Platform } from '@/types'
 
 // Stage 1: research prompt — Claude searches freely, no JSON constraint
-const RESEARCH_SYSTEM = `You are a content intelligence researcher for Privileged Few, a media brand run by Albina Aliyeva focused on wealth transparency, rich people lifestyles, privilege, relationships, and social mobility. The audience is ambitious women aged 18–34 interested in luxury, nepo babies, wealth secrets, old vs new money, celebrity relationships, prenups, class dynamics, and billionaire culture.
+const RESEARCH_SYSTEM = `You are a content intelligence researcher for Privileged Few, a media brand run by Albina Aliyeva (@aliyevaal / @weareprivilegedfew). The brand focuses on wealth transparency, rich people lifestyles, privilege, relationships, and social mobility. The audience is ambitious women aged 18–34 interested in luxury, nepo babies, wealth secrets, old vs new money, celebrity relationships, prenups, class dynamics, and billionaire culture.
 
-Search the web and compile a detailed list of the 9 most culturally relevant trending stories from the last 24–72 hours. For each story include: what happened, why people care, which platform it's blowing up on, and a specific content angle for Albina's Instagram Reels.`
+Albina's PRIMARY platform is Instagram Reels — so Instagram-native viral moments are the highest priority. Also cover TikTok, Twitter/X, and news.
 
-const RESEARCH_PROMPT = `Search for what's trending RIGHT NOW in the last 24-72 hours related to: wealth, luxury, celebrity relationships, nepo babies, inheritance drama, old vs new money, prenups, viral money debates, class warfare, billionaire culture, rich people drama, and anything making people argue about privilege and social class.
+Search the web and compile a detailed list of the 9 most culturally relevant trending stories from the last 24–72 hours. For each story include: what happened, why people care, which platform it originated on, and a specific Reel angle for Albina.`
 
-Find 9 specific viral stories with enough detail to write about each one.`
+const RESEARCH_PROMPT = `Run these searches to find today's trending stories:
+
+1. Search "trending Instagram Reels wealth luxury" to find what's going viral on Instagram right now
+2. Search "viral Instagram posts rich privilege class" for Instagram-native moments
+3. Search "trending now celebrity relationships prenup inheritance drama" for celebrity stories
+4. Search "viral wealth gap billionaire controversy" for money debates blowing up on social
+5. Search "nepo baby influencer rich drama this week" for influencer/class content
+
+Compile the 9 most relevant stories across all searches. Prioritise stories that are:
+- Already circulating as Instagram Reels or being discussed by Instagram creators
+- Getting strong engagement on Instagram, TikTok, or Twitter/X
+- Directly related to: wealth, privilege, relationships, class, luxury, celebrity money drama
+
+Include specific details: names, numbers, quotes — enough for Albina to reference in a Reel.`
 
 // Stage 2: formatting prompt — takes research, outputs only JSON
 const FORMAT_SYSTEM = `You are a JSON formatter. You receive research notes and convert them into a structured JSON array. Output ONLY the JSON — no prose, no markdown, no explanation.
@@ -20,7 +33,7 @@ Each object must have exactly these fields:
 - category: exactly one of "wealth" | "relationships" | "class" | "celebrity" | "culture"
 - heat: exactly one of "hot" | "warm" | "cool"
 - tags: array of 3-5 lowercase keyword strings (no # symbol)
-- platform: exactly one of "instagram" | "tiktok" | "twitter" | "youtube" | "news"`
+- platform: exactly one of "instagram_reels" | "instagram" | "tiktok" | "twitter" | "youtube" | "news" — use "instagram_reels" when the story is specifically circulating as Reels content`
 
 function generateId(): string {
   return `trend_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -35,7 +48,7 @@ function isValidHeat(val: string): val is HeatLevel {
 }
 
 function isValidPlatform(val: string): val is Platform {
-  return ['instagram', 'tiktok', 'twitter', 'youtube', 'news'].includes(val)
+  return ['instagram', 'instagram_reels', 'tiktok', 'twitter', 'youtube', 'news'].includes(val)
 }
 
 function sanitizeTrend(raw: Record<string, unknown>, fetchedAt: string): Trend {

@@ -11,8 +11,16 @@ export async function POST() {
   try {
     const date = todayDate()
     const { trends, generatedAt } = await fetchTrends()
-    await saveSnapshot({ date, trends, generatedAt })
-    // Return trends directly — UI must not depend on Redis being available
+
+    // Save to Redis — log result so we can see in Vercel logs if it fails
+    try {
+      await saveSnapshot({ date, trends, generatedAt })
+      console.log('[seed] saved to Redis OK for', date)
+    } catch (redisErr) {
+      console.error('[seed] Redis save FAILED:', redisErr)
+      // Continue — still return trends to the requesting user
+    }
+
     return NextResponse.json({ ok: true, date, trends, generatedAt })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

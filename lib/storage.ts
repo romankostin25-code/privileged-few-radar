@@ -27,20 +27,15 @@ async function getRedis() {
 
 export async function saveSnapshot(snapshot: DaySnapshot): Promise<void> {
   if (!isConfigured()) {
-    console.warn('[storage] Upstash not configured — snapshot not saved')
+    console.warn('[storage] Upstash env vars not set — snapshot not saved')
     return
   }
-  try {
-    const redis = await getRedis()
-    await Promise.all([
-      redis.set(DATE_KEY(snapshot.date), JSON.stringify(snapshot)),
-      redis.sadd(INDEX_KEY, snapshot.date),
-    ])
-    console.log('[storage] saved snapshot for', snapshot.date)
-  } catch (err) {
-    // Log but don't throw — trends were fetched successfully, Redis is optional
-    console.error('[storage] saveSnapshot failed:', err)
-  }
+  const redis = await getRedis()
+  await Promise.all([
+    redis.set(DATE_KEY(snapshot.date), JSON.stringify(snapshot)),
+    redis.sadd(INDEX_KEY, snapshot.date),
+  ])
+  console.log('[storage] saved snapshot for', snapshot.date)
 }
 
 export async function getSnapshot(date: string): Promise<DaySnapshot | null> {
