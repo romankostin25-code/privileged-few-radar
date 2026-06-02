@@ -1,26 +1,26 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { Trend, Category, HeatLevel, Platform } from '@/types'
 
-const SYSTEM_PROMPT = `You are a content intelligence assistant for Privileged Few — a cross-platform media company run by Albina Aliyeva (@aliyevaal / @weareprivilegedfew). The brand is focused on wealth transparency, rich people lifestyles, privilege, relationships, and social mobility. The core audience is ambitious, globally-minded women aged 18–34 interested in: luxury, nepo babies, wealth secrets, old vs new money, celebrity relationships, prenups, how to get rich, class dynamics, and billionaire culture.
+// Stage 1: research prompt — Claude searches freely, no JSON constraint
+const RESEARCH_SYSTEM = `You are a content intelligence researcher for Privileged Few, a media brand run by Albina Aliyeva focused on wealth transparency, rich people lifestyles, privilege, relationships, and social mobility. The audience is ambitious women aged 18–34 interested in luxury, nepo babies, wealth secrets, old vs new money, celebrity relationships, prenups, class dynamics, and billionaire culture.
 
-Your job is to scan the web and find the 9 most relevant trending stories from the last 24–72 hours that Albina can reference in her Instagram Reels to make them feel timely and culturally relevant.
+Search the web and compile a detailed list of the 9 most culturally relevant trending stories from the last 24–72 hours. For each story include: what happened, why people care, which platform it's blowing up on, and a specific content angle for Albina's Instagram Reels.`
 
-For each trend, provide:
-- title: A punchy, scroll-stopping headline (max 12 words)
-- summary: Exactly 2 sentences explaining what happened and why people care
-- angle: A specific Reel angle tailored to Albina's voice and the Privileged Few brand — how she can spin this story for her audience (1-2 sentences)
-- category: One of exactly these values: "wealth" | "relationships" | "class" | "celebrity" | "culture"
-- heat: One of exactly these values: "hot" (breaking/viral right now) | "warm" (rising, building momentum) | "cool" (interesting but slow-burning)
-- tags: Array of 3-5 relevant hashtag-style keywords (no # symbol, lowercase)
-- platform: Where this is blowing up most — one of: "instagram" | "tiktok" | "twitter" | "youtube" | "news"
+const RESEARCH_PROMPT = `Search for what's trending RIGHT NOW in the last 24-72 hours related to: wealth, luxury, celebrity relationships, nepo babies, inheritance drama, old vs new money, prenups, viral money debates, class warfare, billionaire culture, rich people drama, and anything making people argue about privilege and social class.
 
-CRITICAL: Return ONLY a valid JSON array of exactly 9 objects. No markdown, no backticks, no code fences, no explanatory text before or after. Your entire response must be parseable by JSON.parse(). Start with [ and end with ]. Nothing else.`
+Find 9 specific viral stories with enough detail to write about each one.`
 
-const USER_PROMPT = `Search for what's trending RIGHT NOW in the last 24-72 hours related to: wealth, luxury, celebrity relationships, nepo babies, inheritance drama, old vs new money, prenups, viral money debates, class warfare moments, billionaire culture, rich people drama, influencer wealth, and anything making people argue about privilege and social class.
+// Stage 2: formatting prompt — takes research, outputs only JSON
+const FORMAT_SYSTEM = `You are a JSON formatter. You receive research notes and convert them into a structured JSON array. Output ONLY the JSON — no prose, no markdown, no explanation.
 
-Find the 9 most viral and culturally relevant stories that an Instagram Reels creator focused on wealth and privilege could reference to make her content feel timely. Prioritize stories that are actively being discussed across social media RIGHT NOW.
-
-Return ONLY the JSON array.`
+Each object must have exactly these fields:
+- title: string (punchy headline, max 12 words)
+- summary: string (exactly 2 sentences)
+- angle: string (specific Reel angle for Albina, 1-2 sentences)
+- category: exactly one of "wealth" | "relationships" | "class" | "celebrity" | "culture"
+- heat: exactly one of "hot" | "warm" | "cool"
+- tags: array of 3-5 lowercase keyword strings (no # symbol)
+- platform: exactly one of "instagram" | "tiktok" | "twitter" | "youtube" | "news"`
 
 function generateId(): string {
   return `trend_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -52,44 +52,6 @@ function sanitizeTrend(raw: Record<string, unknown>, fetchedAt: string): Trend {
   }
 }
 
-// Finds the first well-formed JSON array in text using balanced-bracket parsing.
-// Handles nested objects, strings with brackets, footnotes like [1], etc.
-function extractJsonArray(text: string): unknown[] {
-  // Strip markdown code fences first
-  const clean = text.replace(/```(?:json)?/gi, '').trim()
-
-  const start = clean.indexOf('[')
-  if (start === -1) {
-    throw new Error(`No JSON array found in response. Preview: "${clean.slice(0, 300)}"`)
-  }
-
-  let depth = 0
-  let inString = false
-  let escaped = false
-
-  for (let i = start; i < clean.length; i++) {
-    const ch = clean[i]
-    if (escaped) { escaped = false; continue }
-    if (ch === '\\' && inString) { escaped = true; continue }
-    if (ch === '"') { inString = !inString; continue }
-    if (inString) continue
-    if (ch === '[' || ch === '{') depth++
-    else if (ch === ']' || ch === '}') {
-      depth--
-      if (depth === 0) {
-        const candidate = clean.slice(start, i + 1)
-        try {
-          return JSON.parse(candidate)
-        } catch (e) {
-          throw new Error(`JSON parse failed: ${e}. Extracted: "${candidate.slice(0, 200)}"`)
-        }
-      }
-    }
-  }
-
-  throw new Error(`Unmatched brackets in response. Preview: "${clean.slice(0, 300)}"`)
-}
-
 export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: string }> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY is not set in Vercel environment variables.')
@@ -97,24 +59,64 @@ export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: str
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const response = await client.messages.create({
+  // ── Stage 1: research with web search (Claude writes freely) ──────────────
+  console.log('[fetch-trends] stage 1: researching...')
+  const researchRes = await client.messages.create({
     model: 'claude-sonnet-4-5',
-    max_tokens: 8000,
-    system: SYSTEM_PROMPT,
+    max_tokens: 4000,
+    system: RESEARCH_SYSTEM,
     tools: [{ type: 'web_search_20250305' as const, name: 'web_search' }],
-    messages: [{ role: 'user', content: USER_PROMPT }],
+    messages: [{ role: 'user', content: RESEARCH_PROMPT }],
   })
 
-  const textContent = response.content
+  const research = researchRes.content
     .filter((b) => b.type === 'text')
     .map((b) => (b as { type: 'text'; text: string }).text)
     .join('')
 
-  console.log('[fetch-trends] stop_reason:', response.stop_reason, 'text length:', textContent.length)
+  console.log('[fetch-trends] stage 1 done, research length:', research.length)
 
-  const rawTrends = extractJsonArray(textContent)
+  if (!research.trim()) {
+    throw new Error('Web search returned no research content.')
+  }
+
+  // ── Stage 2: format research into JSON (prefilled response = guaranteed JSON) ──
+  console.log('[fetch-trends] stage 2: formatting as JSON...')
+  const formatRes = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 6000,
+    system: FORMAT_SYSTEM,
+    messages: [
+      {
+        role: 'user',
+        content: `Convert these 9 trending stories into the JSON array format:\n\n${research}`,
+      },
+      {
+        // Prefill the assistant response with [ so it MUST continue as a JSON array
+        role: 'assistant',
+        content: '[',
+      },
+    ],
+  })
+
+  const jsonBody = formatRes.content
+    .filter((b) => b.type === 'text')
+    .map((b) => (b as { type: 'text'; text: string }).text)
+    .join('')
+
+  // Prepend the prefilled '[' back and parse
+  const jsonText = '[' + jsonBody
+
+  console.log('[fetch-trends] stage 2 done, json length:', jsonText.length)
+
+  let rawTrends: unknown[]
+  try {
+    rawTrends = JSON.parse(jsonText)
+  } catch (e) {
+    throw new Error(`JSON parse failed: ${e}. Content: "${jsonText.slice(0, 300)}"`)
+  }
+
   const fetchedAt = new Date().toISOString()
-
   return {
     trends: rawTrends
       .slice(0, 9)
