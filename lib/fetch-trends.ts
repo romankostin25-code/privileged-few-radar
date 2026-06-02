@@ -14,7 +14,7 @@ For each trend, provide:
 - tags: Array of 3-5 relevant hashtag-style keywords (no # symbol, lowercase)
 - platform: Where this is blowing up most — one of: "instagram" | "tiktok" | "twitter" | "youtube" | "news"
 
-Return ONLY a valid JSON array of exactly 9 objects. No markdown, no backticks, no explanatory text before or after. Start your response with [ and end with ].`
+CRITICAL: Return ONLY a valid JSON array of exactly 9 objects. No markdown, no backticks, no code fences, no explanatory text before or after. Your entire response must be parseable by JSON.parse(). Start with [ and end with ]. Nothing else.`
 
 const USER_PROMPT = `Search for what's trending RIGHT NOW in the last 24-72 hours related to: wealth, luxury, celebrity relationships, nepo babies, inheritance drama, old vs new money, prenups, viral money debates, class warfare moments, billionaire culture, rich people drama, influencer wealth, and anything making people argue about privilege and social class.
 
@@ -70,10 +70,23 @@ export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: str
     .map((b) => (b as { type: 'text'; text: string }).text)
     .join('')
 
-  const jsonMatch = textContent.match(/\[[\s\S]*\]/)
-  if (!jsonMatch) throw new Error('Model returned no parseable JSON array')
+  // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+  const stripped = textContent.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '').trim()
 
-  const rawTrends: unknown[] = JSON.parse(jsonMatch[0])
+  // Find the outermost JSON array — try the stripped version first, then raw
+  const jsonMatch = stripped.match(/\[[\s\S]*\]/) ?? textContent.match(/\[[\s\S]*\]/)
+  if (!jsonMatch) {
+    const preview = textContent.slice(0, 300).replace(/\n/g, ' ')
+    throw new Error(`Model returned no JSON array. Response preview: "${preview}"`)
+  }
+
+  let rawTrends: unknown[]
+  try {
+    rawTrends = JSON.parse(jsonMatch[0])
+  } catch (e) {
+    const preview = jsonMatch[0].slice(0, 200)
+    throw new Error(`JSON parse failed: ${e}. Content: "${preview}"`)
+  }
   const fetchedAt = new Date().toISOString()
 
   return {
