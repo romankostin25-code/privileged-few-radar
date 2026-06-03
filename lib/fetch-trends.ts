@@ -6,7 +6,7 @@ const RESEARCH_SYSTEM = `You are a content intelligence researcher for Privilege
 
 Albina's PRIMARY platform is Instagram Reels — so Instagram-native viral moments are the highest priority. Also cover TikTok, Twitter/X, and news.
 
-Search the web and compile a detailed list of the 9 most culturally relevant trending stories from the last 24–72 hours. For each story include: what happened, why people care, which platform it originated on, and a specific Reel angle for Albina.`
+Search the web and compile a detailed list of the 18 most culturally relevant trending stories from the last 24–72 hours. For each story include: what happened, why people care, which platform it originated on, and a specific Reel angle for Albina.`
 
 const RESEARCH_PROMPT = `Run these searches to find today's trending stories:
 
@@ -16,7 +16,7 @@ const RESEARCH_PROMPT = `Run these searches to find today's trending stories:
 4. Search "viral wealth gap billionaire controversy" for money debates blowing up on social
 5. Search "nepo baby influencer rich drama this week" for influencer/class content
 
-Compile the 9 most relevant stories across all searches. Prioritise stories that are:
+Compile the 18 most relevant stories across all searches. Prioritise stories that are:
 - Already circulating as Instagram Reels or being discussed by Instagram creators
 - Getting strong engagement on Instagram, TikTok, or Twitter/X
 - Directly related to: wealth, privilege, relationships, class, luxury, celebrity money drama
@@ -76,7 +76,7 @@ export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: str
   console.log('[fetch-trends] stage 1: researching...')
   const researchRes = await client.messages.create({
     model: 'claude-sonnet-4-5',
-    max_tokens: 3000,
+    max_tokens: 5000,
     system: RESEARCH_SYSTEM,
     tools: [{ type: 'web_search_20250305' as const, name: 'web_search' }],
     messages: [{ role: 'user', content: RESEARCH_PROMPT }],
@@ -102,7 +102,7 @@ export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: str
     messages: [
       {
         role: 'user',
-        content: `Convert these 9 trending stories into the JSON array format:\n\n${research}`,
+        content: `Convert these 18 trending stories into the JSON array format:\n\n${research}`,
       },
       {
         // Prefill the assistant response with [ so it MUST continue as a JSON array
@@ -132,7 +132,7 @@ export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: str
   const fetchedAt = new Date().toISOString()
   return {
     trends: rawTrends
-      .slice(0, 9)
+      .slice(0, 18)
       .map((r) => sanitizeTrend(r as Record<string, unknown>, fetchedAt)),
     generatedAt: fetchedAt,
   }
