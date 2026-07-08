@@ -29,6 +29,14 @@ Compile the ${CURRENT_COUNT} most relevant stories across all searches. Prioriti
 
 Include specific details: names, numbers, quotes — enough for Albina to reference in a Reel.`
 
+const JSON_SAFETY_RULES = `
+
+JSON safety rules — follow these exactly or the output will fail to parse:
+- Every string value must be valid JSON. Escape any double-quote character inside a string as \\" and any backslash as \\\\.
+- Never include a raw line break inside a string value — replace it with a space.
+- When quoting someone, do NOT wrap the quote in double quotes ("like this") — use single quotes ('like this') instead, or paraphrase. This avoids breaking the JSON string.
+- Double-check every object has commas between fields and closes with a matching brace before moving to the next one.`
+
 const CURRENT_FORMAT_SYSTEM = `You are a JSON formatter. You receive research notes and convert them into a structured JSON array. Output ONLY the JSON — no prose, no markdown, no explanation.
 
 Each object must have exactly these fields:
@@ -38,7 +46,7 @@ Each object must have exactly these fields:
 - category: exactly one of "wealth" | "relationships" | "class" | "celebrity" | "culture"
 - heat: exactly one of "hot" | "warm" | "cool"
 - tags: array of 3-5 lowercase keyword strings (no # symbol)
-- platform: exactly one of "instagram_reels" | "instagram" | "tiktok" | "twitter" | "youtube" | "news" — use "instagram_reels" when the story is specifically circulating as Reels content`
+- platform: exactly one of "instagram_reels" | "instagram" | "tiktok" | "twitter" | "youtube" | "news" — use "instagram_reels" when the story is specifically circulating as Reels content${JSON_SAFETY_RULES}`
 
 // ─────────────────────────────────────────────────────────────────────────
 // PREDICTED trends — early signals likely to break out within 48h to a week
@@ -77,7 +85,7 @@ Each object must have exactly these fields:
 - angle: string (2-4 sentences) — a DETAILED Reel angle for Albina: the hook she could open with, the point of view she should take, and how to frame it so she looks ahead of the curve before it's mainstream
 - category: exactly one of "wealth" | "relationships" | "class" | "celebrity" | "culture"
 - tags: array of 3-5 lowercase keyword strings (no # symbol)
-- platform: exactly one of "reddit" | "twitter" | "instagram" | "instagram_reels" | "tiktok" | "news" — wherever the early signal is strongest`
+- platform: exactly one of "reddit" | "twitter" | "instagram" | "instagram_reels" | "tiktok" | "news" — wherever the early signal is strongest${JSON_SAFETY_RULES}`
 
 // ─────────────────────────────────────────────────────────────────────────
 // Shared helpers
@@ -161,7 +169,7 @@ async function research(client: Anthropic, system: string, prompt: string): Prom
   return text
 }
 
-async function formatAsJson(
+async function formatAsJsonOnce(
   client: Anthropic,
   system: string,
   researchText: string,
@@ -184,12 +192,29 @@ async function formatAsJson(
     .join('')
 
   const jsonText = '[' + jsonBody
+  return JSON.parse(jsonText)
+}
 
-  try {
-    return JSON.parse(jsonText)
-  } catch (e) {
-    throw new Error(`JSON parse failed: ${e}. Content: "${jsonText.slice(0, 300)}"`)
+// The format model occasionally emits invalid JSON (e.g. an unescaped quote
+// inside a verbatim Reddit quote). Retry a couple of times before giving up —
+// a fresh sample is usually valid even when the previous one wasn't.
+async function formatAsJson(
+  client: Anthropic,
+  system: string,
+  researchText: string,
+  count: number,
+  attempts = 3
+): Promise<unknown[]> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await formatAsJsonOnce(client, system, researchText, count)
+    } catch (e) {
+      lastError = e
+      console.warn(`[fetch-trends] JSON format attempt ${attempt}/${attempts} failed:`, e)
+    }
   }
+  throw new Error(`JSON parse failed after ${attempts} attempts: ${lastError}`)
 }
 
 function withAvoidList(prompt: string, avoidTitles: string[]): string {
