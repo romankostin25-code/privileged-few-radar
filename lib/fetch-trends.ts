@@ -192,7 +192,18 @@ async function formatAsJsonOnce(
     .join('')
 
   const jsonText = '[' + jsonBody
-  return JSON.parse(jsonText)
+
+  try {
+    return JSON.parse(jsonText)
+  } catch (e) {
+    const posMatch = e instanceof Error ? e.message.match(/position (\d+)/) : null
+    const pos = posMatch ? Number(posMatch[1]) : Math.floor(jsonText.length / 2)
+    const start = Math.max(0, pos - 200)
+    const snippet = jsonText.slice(start, pos + 200)
+    throw new Error(
+      `JSON parse failed: ${e}. stop_reason=${formatRes.stop_reason}, length=${jsonText.length}. Near position ${pos}: "...${snippet}..."`
+    )
+  }
 }
 
 // The format model occasionally emits invalid JSON (e.g. an unescaped quote
@@ -203,6 +214,7 @@ async function formatAsJson(
   system: string,
   researchText: string,
   count: number,
+  label: string,
   attempts = 3
 ): Promise<unknown[]> {
   let lastError: unknown
@@ -211,10 +223,10 @@ async function formatAsJson(
       return await formatAsJsonOnce(client, system, researchText, count)
     } catch (e) {
       lastError = e
-      console.warn(`[fetch-trends] JSON format attempt ${attempt}/${attempts} failed:`, e)
+      console.warn(`[fetch-trends] [${label}] JSON format attempt ${attempt}/${attempts} failed:`, e)
     }
   }
-  throw new Error(`JSON parse failed after ${attempts} attempts: ${lastError}`)
+  throw new Error(`[${label}] JSON parse failed after ${attempts} attempts: ${lastError}`)
 }
 
 function withAvoidList(prompt: string, avoidTitles: string[]): string {
@@ -238,8 +250,8 @@ export async function fetchTrends(avoidTitles: string[] = []): Promise<{ trends:
 
   console.log('[fetch-trends] formatting as JSON in parallel...')
   const [rawCurrent, rawPredicted] = await Promise.all([
-    formatAsJson(client, CURRENT_FORMAT_SYSTEM, currentResearch, CURRENT_COUNT),
-    formatAsJson(client, PREDICTED_FORMAT_SYSTEM, predictedResearch, PREDICTED_COUNT),
+    formatAsJson(client, CURRENT_FORMAT_SYSTEM, currentResearch, CURRENT_COUNT, 'current'),
+    formatAsJson(client, PREDICTED_FORMAT_SYSTEM, predictedResearch, PREDICTED_COUNT, 'predicted'),
   ])
   console.log('[fetch-trends] formatting done. current:', rawCurrent.length, 'predicted:', rawPredicted.length)
 
