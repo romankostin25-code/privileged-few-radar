@@ -1,6 +1,6 @@
-# Privileged Few — Daily Trend Radar
+# Privileged Few — Trend Radar
 
-A daily content intelligence dashboard for [@weareprivilegedfew](https://instagram.com/weareprivilegedfew). Scans the web for trending wealth, celebrity, class, and culture stories that Albina can reference in her Instagram Reels to make them feel timely and culturally relevant.
+A content intelligence dashboard for [@weareprivilegedfew](https://instagram.com/weareprivilegedfew), refreshed every 48 hours. It scans Instagram, TikTok, Twitter/X, and news for trending wealth, celebrity, class, and culture stories, and separately mines Reddit across work, economics, privilege, society, wealth, equality, and women's rights to **predict** which emerging themes will break out within the next 48 hours to a week — so Albina can get ahead of a story before it's mainstream.
 
 ## Setup
 
@@ -36,22 +36,25 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## How it works
 
-1. Click **Refresh feed** — the app calls Claude Sonnet with web search enabled and asks it to find the 9 most relevant trending stories from the last 24–72 hours related to wealth, privilege, relationships, and celebrity drama.
-2. Each **Trend Card** shows a category, heat level, 2-sentence summary, and a specific Reel angle tailored to Albina's voice.
-3. **Copy idea** copies the title + angle to your clipboard in one click.
-4. **Generate script ↗** opens a modal and generates a full direct-to-camera Reel script (hook + talking points + CTA, ~50 seconds).
-5. Use the **filter pills** to browse by topic category.
+1. Every 48 hours (cron self-throttled, ~7 AM UTC) — or any time via **Generate brief** — the app runs two research pipelines in parallel with Claude Sonnet + web search:
+   - **Current**: the 18 most relevant trending stories from the last 24–72 hours (Instagram/TikTok/Twitter/news).
+   - **Predicted**: 8 emerging themes mined from Reddit (and beyond) across work & labor, economics, privilege, society, wealth, equality, and women's rights — early signals with concrete evidence (subreddit, thread, engagement) and detailed reasoning for why and when they'll break out (next 48h or 3–7 days).
+2. Each **Trend Card** shows a category, heat level (or confidence + break-out window for predictions), summary, and a specific Reel angle. Predicted cards also show the supporting signals and the reasoning behind the forecast.
+3. Use the **All / Current / 🔮 Predicted** toggle plus the category **filter pills** to browse.
+4. **Copy idea** copies the title + angle to your clipboard in one click.
+5. **Generate script ↗** opens a modal and generates a full direct-to-camera Reel script (hook + talking points + CTA, ~50 seconds) for either a current or predicted trend.
 
 ## Tech stack
 
 - **Next.js 14** (App Router, TypeScript)
 - **Tailwind CSS** for styling
-- **@anthropic-ai/sdk** with `web_search_20250305` tool for real-time trend scanning
+- **@anthropic-ai/sdk** with `web_search_20250305` tool for real-time trend scanning and Reddit-focused forecasting
+- **Vercel Blob** for storing daily snapshots (history/calendar)
+- **Resend** for the periodic email digest
 - **DM Serif Display + DM Sans** from Google Fonts
 
 ## Notes
 
-- The trend scan uses Claude Sonnet with web search and can take 20–40 seconds depending on how many searches the model performs.
+- The trend scan runs current + predicted research and formatting in parallel and can take roughly 60–100 seconds depending on how many searches the model performs.
 - Script generation is faster (typically 5–10 seconds) and does not use web search.
-- No database is used — all state is in-memory/client-side.
-- Trends reset on page refresh; click **Refresh feed** again to pull a new batch.
+- Snapshots are stored per calendar day in Vercel Blob; the cron route checks the last snapshot's timestamp and only regenerates once 48 hours have passed, so the underlying `vercel.json` schedule can stay a plain daily trigger.

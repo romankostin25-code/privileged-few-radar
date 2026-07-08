@@ -45,6 +45,12 @@ export async function getSnapshot(date: string): Promise<DaySnapshot | null> {
   }
 }
 
+export async function getLatestSnapshot(): Promise<DaySnapshot | null> {
+  const dates = await listDates()
+  if (!dates.length) return null
+  return getSnapshot(dates[0])
+}
+
 export async function listDates(): Promise<string[]> {
   if (!isConfigured()) return []
   try {

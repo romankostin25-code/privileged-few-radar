@@ -26,6 +26,7 @@ function todayISO(): string {
 export default function HomePage() {
   const [trends, setTrends] = useState<Trend[]>([])
   const [activeFilter, setActiveFilter] = useState<FilterValue>('all')
+  const [kindFilter, setKindFilter] = useState<'all' | 'current' | 'predicted'>('all')
   const [selectedTrend, setSelectedTrend] = useState<Trend | null>(null)
 
   const [historyDates, setHistoryDates] = useState<string[]>([])
@@ -35,10 +36,14 @@ export default function HomePage() {
   const [seedError, setSeedError] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  const filteredTrends = useMemo(
-    () => activeFilter === 'all' ? trends : trends.filter(t => t.category === activeFilter),
-    [trends, activeFilter]
-  )
+  const predictedCount = useMemo(() => trends.filter(t => t.kind === 'predicted').length, [trends])
+
+  const filteredTrends = useMemo(() => {
+    const byKind = kindFilter === 'all'
+      ? trends
+      : trends.filter(t => (kindFilter === 'predicted' ? t.kind === 'predicted' : t.kind !== 'predicted'))
+    return activeFilter === 'all' ? byKind : byKind.filter(t => t.category === activeFilter)
+  }, [trends, activeFilter, kindFilter])
 
   const loadDay = useCallback(async (date: string) => {
     setLoading(true)
@@ -81,7 +86,7 @@ export default function HomePage() {
     setSeedError(null)
     setSeeding(true)
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 150_000)
+    const timeout = setTimeout(() => controller.abort(), 240_000)
     try {
       const res = await fetch('/api/seed', { method: 'POST', signal: controller.signal })
       const text = await res.text()
@@ -111,7 +116,7 @@ export default function HomePage() {
       clearTimeout(timeout)
       setSeedError(
         err instanceof Error
-          ? (err.name === 'AbortError' ? 'Timed out after 150s — check Vercel logs.' : err.message)
+          ? (err.name === 'AbortError' ? 'Timed out after 240s — check Vercel logs.' : err.message)
           : 'Generation failed'
       )
     } finally {
@@ -228,6 +233,38 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* Kind toggle: current vs. predicted */}
+          {hasData && !loading && predictedCount > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {([
+                { value: 'all' as const, label: 'All' },
+                { value: 'current' as const, label: 'Current' },
+                { value: 'predicted' as const, label: `🔮 Predicted (${predictedCount})` },
+              ]).map(opt => {
+                const isActive = kindFilter === opt.value
+                const isPredictedOpt = opt.value === 'predicted'
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setKindFilter(opt.value)}
+                    disabled={loading || seeding}
+                    className={[
+                      'px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border whitespace-nowrap',
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                      isActive
+                        ? isPredictedOpt
+                          ? 'bg-[rgba(167,139,250,0.18)] border-[#a78bfa] text-[#a78bfa]'
+                          : 'bg-[rgba(212,165,116,0.18)] border-[#d4a574] text-[#d4a574]'
+                        : 'bg-transparent border-[rgba(255,255,255,0.1)] text-[#8a8278] hover:border-[rgba(212,165,116,0.4)] hover:text-[#d4a574]',
+                    ].join(' ')}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           {/* Filter bar */}
           {hasData && !loading && (
             <div className="mb-8">
@@ -240,9 +277,9 @@ export default function HomePage() {
             <div className="flex flex-col items-center justify-center py-32 gap-5">
               <div className="w-10 h-10 rounded-full border-2 border-[rgba(212,165,116,0.2)] border-t-[#d4a574] animate-spin" />
               <p className="text-xl text-[#d4a574]" style={{ fontFamily: '"DM Serif Display", Georgia, serif' }}>
-                Scanning for today's cultural moments...
+                Scanning Instagram, TikTok, X & Reddit — and forecasting what&apos;s next...
               </p>
-              <p className="text-sm text-[#6b6560]">This takes 20–40 seconds</p>
+              <p className="text-sm text-[#6b6560]">This takes 60–100 seconds</p>
             </div>
           )}
 
@@ -261,7 +298,7 @@ export default function HomePage() {
                 No briefs yet.
               </p>
               <p className="text-sm text-[#3a3a3a] max-w-sm">
-                Briefs are generated automatically at 7 AM UTC every day. Hit the button above to generate today's now.
+                Briefs are generated automatically every 48 hours (~7 AM UTC). Hit the button above to generate one now.
               </p>
             </div>
           )}
@@ -294,7 +331,7 @@ export default function HomePage() {
                 ? `${historyDates.length} day${historyDates.length !== 1 ? 's' : ''} archived`
                 : 'Awaiting first brief'}
             </span>
-            <span className="opacity-50">Privileged Few × Claude AI · auto 7 AM UTC</span>
+            <span className="opacity-50">Privileged Few × Claude AI · auto every 48h</span>
           </div>
         </footer>
       </div>
