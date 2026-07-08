@@ -43,10 +43,14 @@ function predictedBlock(t: Trend, i: number): string {
     .map((e) => `<li style="margin-bottom:4px;">${e}</li>`)
     .join('')
 
+  const redditTag = t.platform === 'reddit'
+    ? `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;background:rgba(255,69,0,0.12);color:#ff4500;border-radius:999px;border:1px solid rgba(255,69,0,0.35);margin-left:6px;">👽 Reddit</span>`
+    : ''
+
   return `
 <div style="margin-bottom:24px;padding:20px;background:#1e1a2e;border-radius:12px;border-left:3px solid #a78bfa;">
   <div style="margin-bottom:6px;">
-    <span style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#a78bfa;">${CATEGORY_LABEL[t.category] ?? t.category}</span>
+    <span style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#a78bfa;">${CATEGORY_LABEL[t.category] ?? t.category}</span>${redditTag}
     <span style="font-size:11px;color:#6b6560;">&nbsp;·&nbsp;${CONFIDENCE_LABEL[t.confidence ?? 'medium']}&nbsp;·&nbsp;${WINDOW_LABEL[t.predictedWindow ?? '3-7d']}</span>
   </div>
   <h3 style="margin:0 0 8px;font-size:17px;font-weight:600;color:#f0ece4;line-height:1.3;">${i + 1}. ${t.title}</h3>
@@ -69,10 +73,14 @@ function trendBlock(t: Trend, i: number): string {
     )
     .join('')
 
+  const redditTag = t.platform === 'reddit'
+    ? `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;background:rgba(255,69,0,0.12);color:#ff4500;border-radius:999px;border:1px solid rgba(255,69,0,0.35);margin-left:6px;">👽 Reddit</span>`
+    : ''
+
   return `
 <div style="margin-bottom:24px;padding:20px;background:#1e1e1e;border-radius:12px;border-left:3px solid ${HEAT_COLOR[t.heat] ?? '#d4a574'};">
   <div style="margin-bottom:6px;">
-    <span style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#d4a574;">${CATEGORY_LABEL[t.category] ?? t.category}</span>
+    <span style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#d4a574;">${CATEGORY_LABEL[t.category] ?? t.category}</span>${redditTag}
     <span style="font-size:11px;color:#6b6560;">&nbsp;·&nbsp;${HEAT_LABEL[t.heat] ?? t.heat}</span>
   </div>
   <h3 style="margin:0 0 8px;font-size:17px;font-weight:600;color:#f0ece4;line-height:1.3;">${i + 1}. ${t.title}</h3>

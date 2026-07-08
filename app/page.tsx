@@ -26,7 +26,7 @@ function todayISO(): string {
 export default function HomePage() {
   const [trends, setTrends] = useState<Trend[]>([])
   const [activeFilter, setActiveFilter] = useState<FilterValue>('all')
-  const [kindFilter, setKindFilter] = useState<'all' | 'current' | 'predicted'>('all')
+  const [activeTab, setActiveTab] = useState<'trends' | 'predictions'>('trends')
   const [selectedTrend, setSelectedTrend] = useState<Trend | null>(null)
 
   const [historyDates, setHistoryDates] = useState<string[]>([])
@@ -36,14 +36,26 @@ export default function HomePage() {
   const [seedError, setSeedError] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
+  const currentCount = useMemo(() => trends.filter(t => t.kind !== 'predicted').length, [trends])
   const predictedCount = useMemo(() => trends.filter(t => t.kind === 'predicted').length, [trends])
 
   const filteredTrends = useMemo(() => {
-    const byKind = kindFilter === 'all'
-      ? trends
-      : trends.filter(t => (kindFilter === 'predicted' ? t.kind === 'predicted' : t.kind !== 'predicted'))
-    return activeFilter === 'all' ? byKind : byKind.filter(t => t.category === activeFilter)
-  }, [trends, activeFilter, kindFilter])
+    const byTab = activeTab === 'predictions'
+      ? trends.filter(t => t.kind === 'predicted')
+      : trends.filter(t => t.kind !== 'predicted')
+    const byCategory = activeFilter === 'all' ? byTab : byTab.filter(t => t.category === activeFilter)
+
+    if (activeTab !== 'predictions') return byCategory
+
+    // Predictions: surface the soonest, highest-confidence breakouts first
+    const windowRank: Record<string, number> = { '48h': 0, '3-7d': 1 }
+    const confidenceRank: Record<string, number> = { high: 0, medium: 1, low: 2 }
+    return [...byCategory].sort((a, b) => {
+      const w = (windowRank[a.predictedWindow ?? '3-7d'] ?? 1) - (windowRank[b.predictedWindow ?? '3-7d'] ?? 1)
+      if (w !== 0) return w
+      return (confidenceRank[a.confidence ?? 'medium'] ?? 1) - (confidenceRank[b.confidence ?? 'medium'] ?? 1)
+    })
+  }, [trends, activeFilter, activeTab])
 
   const loadDay = useCallback(async (date: string) => {
     setLoading(true)
@@ -53,6 +65,7 @@ export default function HomePage() {
       setTrends(data.snapshot?.trends ?? [])
       setSelectedDate(date)
       setActiveFilter('all')
+      setActiveTab('trends')
     } catch {
       setTrends([])
       setSelectedDate(date)
@@ -108,6 +121,7 @@ export default function HomePage() {
         setTrends(data.trends)
         setSelectedDate(data.date ?? todayISO())
         setActiveFilter('all')
+        setActiveTab('trends')
       }
 
       // Refresh history index in background so calendar updates
@@ -233,35 +247,31 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Kind toggle: current vs. predicted */}
-          {hasData && !loading && predictedCount > 0 && (
-            <div className="mb-4 flex flex-wrap gap-2">
-              {([
-                { value: 'all' as const, label: 'All' },
-                { value: 'current' as const, label: 'Current' },
-                { value: 'predicted' as const, label: `🔮 Predicted (${predictedCount})` },
-              ]).map(opt => {
-                const isActive = kindFilter === opt.value
-                const isPredictedOpt = opt.value === 'predicted'
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setKindFilter(opt.value)}
-                    disabled={loading || seeding}
-                    className={[
-                      'px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border whitespace-nowrap',
-                      'disabled:opacity-40 disabled:cursor-not-allowed',
-                      isActive
-                        ? isPredictedOpt
-                          ? 'bg-[rgba(167,139,250,0.18)] border-[#a78bfa] text-[#a78bfa]'
-                          : 'bg-[rgba(212,165,116,0.18)] border-[#d4a574] text-[#d4a574]'
-                        : 'bg-transparent border-[rgba(255,255,255,0.1)] text-[#8a8278] hover:border-[rgba(212,165,116,0.4)] hover:text-[#d4a574]',
-                    ].join(' ')}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })}
+          {/* Tabs: Trends vs. Predictions */}
+          {hasData && !loading && (
+            <div className="mb-6 flex items-center gap-6 border-b border-[rgba(255,255,255,0.08)]">
+              <button
+                onClick={() => setActiveTab('trends')}
+                disabled={loading || seeding}
+                className={`pb-3 text-sm font-medium border-b-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                  activeTab === 'trends'
+                    ? 'border-[#d4a574] text-[#d4a574]'
+                    : 'border-transparent text-[#6b6560] hover:text-[#c8bfb4]'
+                }`}
+              >
+                Trends{currentCount > 0 ? ` (${currentCount})` : ''}
+              </button>
+              <button
+                onClick={() => setActiveTab('predictions')}
+                disabled={loading || seeding}
+                className={`pb-3 text-sm font-medium border-b-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                  activeTab === 'predictions'
+                    ? 'border-[#a78bfa] text-[#a78bfa]'
+                    : 'border-transparent text-[#6b6560] hover:text-[#c8bfb4]'
+                }`}
+              >
+                🔮 Predictions{predictedCount > 0 ? ` (${predictedCount})` : ''}
+              </button>
             </div>
           )}
 
@@ -308,7 +318,11 @@ export default function HomePage() {
             <div className={seeding ? 'opacity-40 pointer-events-none' : ''}>
               {filteredTrends.length === 0 ? (
                 <div className="text-center py-20">
-                  <p className="text-[#6b6560] text-sm">No trends in this category.</p>
+                  <p className="text-[#6b6560] text-sm">
+                    {activeTab === 'predictions'
+                      ? (predictedCount === 0 ? 'No predictions in this brief.' : 'No predictions in this category.')
+                      : 'No trends in this category.'}
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -326,7 +340,7 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-4 text-xs text-[#4a4440] flex-wrap">
             <span>
               {hasData
-                ? `${trends.length} trends · ${selectedDate ? fmtDateShort(selectedDate) : ''}`
+                ? `${currentCount} trends · ${predictedCount} predictions · ${selectedDate ? fmtDateShort(selectedDate) : ''}`
                 : historyDates.length > 0
                 ? `${historyDates.length} day${historyDates.length !== 1 ? 's' : ''} archived`
                 : 'Awaiting first brief'}

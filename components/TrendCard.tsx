@@ -96,9 +96,16 @@ export default function TrendCard({ trend, onGenerateScript }: TrendCardProps) {
       <div className="flex flex-col flex-1 p-5 gap-4">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3">
-          <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-[#d4a574]">
-            {CATEGORY_LABEL[trend.category] ?? trend.category}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-[#d4a574]">
+              {CATEGORY_LABEL[trend.category] ?? trend.category}
+            </span>
+            {trend.platform === 'reddit' && (
+              <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(255,69,0,0.12)] text-[#ff4500] border border-[rgba(255,69,0,0.35)]">
+                👽 Reddit
+              </span>
+            )}
+          </div>
           <span
             className={`shrink-0 text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
               isPredicted ? confidence.className : heat.className
