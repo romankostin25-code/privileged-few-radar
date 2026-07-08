@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { fetchTrends } from '@/lib/fetch-trends'
-import { saveSnapshot, todayDate } from '@/lib/storage'
+import { saveSnapshot, todayDate, getRecentTitles } from '@/lib/storage'
 
 export const maxDuration = 120
 
 export async function POST() {
   try {
-    const { trends, generatedAt } = await fetchTrends()
+    const avoidTitles = await getRecentTitles()
+    const { trends, generatedAt } = await fetchTrends(avoidTitles)
     const date = todayDate()
 
     await saveSnapshot({ date, trends, generatedAt })

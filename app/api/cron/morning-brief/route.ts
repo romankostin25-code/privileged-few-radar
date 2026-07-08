@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchTrends } from '@/lib/fetch-trends'
-import { saveSnapshot, todayDate, getLatestSnapshot } from '@/lib/storage'
+import { saveSnapshot, todayDate, getLatestSnapshot, getRecentTitles } from '@/lib/storage'
 import { sendMorningBrief } from '@/lib/email'
 
 export const maxDuration = 300
@@ -33,7 +33,8 @@ export async function GET(req: NextRequest) {
     const date = todayDate()
     console.log(`[cron] morning-brief starting for ${date}`)
 
-    const { trends, generatedAt } = await fetchTrends()
+    const avoidTitles = await getRecentTitles()
+    const { trends, generatedAt } = await fetchTrends(avoidTitles)
     await saveSnapshot({ date, trends, generatedAt })
     await sendMorningBrief(trends, date)
 

@@ -192,17 +192,22 @@ async function formatAsJson(
   }
 }
 
-export async function fetchTrends(): Promise<{ trends: Trend[]; generatedAt: string }> {
+function withAvoidList(prompt: string, avoidTitles: string[]): string {
+  if (!avoidTitles.length) return prompt
+  return `${prompt}\n\nIMPORTANT — avoid repeats: the following stories/themes were already covered in recent briefs. Do NOT include them again unless there's been a genuinely major new development since then. Find fresh stories instead:\n${avoidTitles.map((t) => `- ${t}`).join('\n')}`
+}
+
+export async function fetchTrends(avoidTitles: string[] = []): Promise<{ trends: Trend[]; generatedAt: string }> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY is not set in Vercel environment variables.')
   }
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  console.log('[fetch-trends] researching current + predicted in parallel...')
+  console.log('[fetch-trends] researching current + predicted in parallel. avoiding', avoidTitles.length, 'recent titles')
   const [currentResearch, predictedResearch] = await Promise.all([
-    research(client, CURRENT_RESEARCH_SYSTEM, CURRENT_RESEARCH_PROMPT),
-    research(client, PREDICTED_RESEARCH_SYSTEM, PREDICTED_RESEARCH_PROMPT),
+    research(client, CURRENT_RESEARCH_SYSTEM, withAvoidList(CURRENT_RESEARCH_PROMPT, avoidTitles)),
+    research(client, PREDICTED_RESEARCH_SYSTEM, withAvoidList(PREDICTED_RESEARCH_PROMPT, avoidTitles)),
   ])
   console.log('[fetch-trends] research done. current:', currentResearch.length, 'predicted:', predictedResearch.length)
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchTrends } from '@/lib/fetch-trends'
-import { saveSnapshot, todayDate } from '@/lib/storage'
+import { saveSnapshot, todayDate, getRecentTitles } from '@/lib/storage'
 
 export const maxDuration = 300
 
@@ -10,7 +10,8 @@ export const maxDuration = 300
 export async function POST() {
   try {
     const date = todayDate()
-    const { trends, generatedAt } = await fetchTrends()
+    const avoidTitles = await getRecentTitles()
+    const { trends, generatedAt } = await fetchTrends(avoidTitles)
 
     // Save to Redis — log result so we can see in Vercel logs if it fails
     try {

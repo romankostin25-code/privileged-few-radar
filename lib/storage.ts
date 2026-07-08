@@ -51,6 +51,17 @@ export async function getLatestSnapshot(): Promise<DaySnapshot | null> {
   return getSnapshot(dates[0])
 }
 
+// Titles from the last few briefs, used to steer new research away from repeats.
+export async function getRecentTitles(briefsBack = 3): Promise<string[]> {
+  const dates = await listDates()
+  const recentDates = dates.slice(0, briefsBack)
+  const snapshots = await Promise.all(recentDates.map((d) => getSnapshot(d)))
+  const titles = snapshots
+    .filter((s): s is DaySnapshot => !!s)
+    .flatMap((s) => s.trends.map((t) => t.title))
+  return Array.from(new Set(titles))
+}
+
 export async function listDates(): Promise<string[]> {
   if (!isConfigured()) return []
   try {
